@@ -86,6 +86,13 @@ public class WxAuthController {
             return ResponseUtil.fail(AUTH_INVALID_ACCOUNT, "账号密码不对");
         }
 
+        // 更新登录情况
+        user.setLastLoginTime(LocalDateTime.now());
+        user.setLastLoginIp(IpUtil.getIpAddr(request));
+        if (userService.updateById(user) == 0) {
+            return ResponseUtil.updatedDataFailed();
+        }
+
         // userInfo
         UserInfo userInfo = new UserInfo();
         userInfo.setNickName(username);
@@ -190,12 +197,11 @@ public class WxAuthController {
             return ResponseUtil.fail(AUTH_CAPTCHA_UNSUPPORT, "小程序后台验证码服务不支持");
         }
         String code = CharUtil.getRandomNum(6);
-        notifyService.notifySmsTemplate(phoneNumber, NotifyType.CAPTCHA, new String[]{code});
-
         boolean successful = CaptchaCodeManager.addToCache(phoneNumber, code);
         if (!successful) {
             return ResponseUtil.fail(AUTH_CAPTCHA_FREQUENCY, "验证码未超时1分钟，不能发送");
         }
+        notifyService.notifySmsTemplate(phoneNumber, NotifyType.CAPTCHA, new String[]{code});
 
         return ResponseUtil.ok();
     }
@@ -232,10 +238,12 @@ public class WxAuthController {
         String password = JacksonUtil.parseString(body, "password");
         String mobile = JacksonUtil.parseString(body, "mobile");
         String code = JacksonUtil.parseString(body, "code");
+        // 如果是小程序注册，则必须非空
+        // 其他情况，可以为空
         String wxCode = JacksonUtil.parseString(body, "wxCode");
 
         if (StringUtils.isEmpty(username) || StringUtils.isEmpty(password) || StringUtils.isEmpty(mobile)
-                || StringUtils.isEmpty(wxCode) || StringUtils.isEmpty(code)) {
+                || StringUtils.isEmpty(code)) {
             return ResponseUtil.badArgument();
         }
 
@@ -257,24 +265,28 @@ public class WxAuthController {
             return ResponseUtil.fail(AUTH_CAPTCHA_UNMATCH, "验证码错误");
         }
 
-        String openId = null;
-        try {
-            WxMaJscode2SessionResult result = this.wxService.getUserService().getSessionInfo(wxCode);
-            openId = result.getOpenid();
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseUtil.fail(AUTH_OPENID_UNACCESS, "openid 获取失败");
-        }
-        userList = userService.queryByOpenid(openId);
-        if (userList.size() > 1) {
-            return ResponseUtil.serious();
-        }
-        if (userList.size() == 1) {
-            LitemallUser checkUser = userList.get(0);
-            String checkUsername = checkUser.getUsername();
-            String checkPassword = checkUser.getPassword();
-            if (!checkUsername.equals(openId) || !checkPassword.equals(openId)) {
-                return ResponseUtil.fail(AUTH_OPENID_BINDED, "openid已绑定账号");
+        String openId = "";
+        // 非空，则是小程序注册
+        // 继续验证openid
+        if(!StringUtils.isEmpty(wxCode)) {
+            try {
+                WxMaJscode2SessionResult result = this.wxService.getUserService().getSessionInfo(wxCode);
+                openId = result.getOpenid();
+            } catch (Exception e) {
+                e.printStackTrace();
+                return ResponseUtil.fail(AUTH_OPENID_UNACCESS, "openid 获取失败");
+            }
+            userList = userService.queryByOpenid(openId);
+            if (userList.size() > 1) {
+                return ResponseUtil.serious();
+            }
+            if (userList.size() == 1) {
+                LitemallUser checkUser = userList.get(0);
+                String checkUsername = checkUser.getUsername();
+                String checkPassword = checkUser.getPassword();
+                if (!checkUsername.equals(openId) || !checkPassword.equals(openId)) {
+                    return ResponseUtil.fail(AUTH_OPENID_BINDED, "openid已绑定账号");
+                }
             }
         }
 
@@ -305,13 +317,12 @@ public class WxAuthController {
 
         // token
         String token = UserTokenManager.generateToken(user.getId());
-        
+
         Map<Object, Object> result = new HashMap<Object, Object>();
         result.put("token", token);
         result.put("userInfo", userInfo);
         return ResponseUtil.ok(result);
     }
-
 
     /**
      * 请求验证码
@@ -343,14 +354,11 @@ public class WxAuthController {
             return ResponseUtil.fail(AUTH_CAPTCHA_UNSUPPORT, "小程序后台验证码服务不支持");
         }
         String code = CharUtil.getRandomNum(6);
-        // TODO
-        // 根据type发送不同的验证码
-        notifyService.notifySmsTemplate(phoneNumber, NotifyType.CAPTCHA, new String[]{code});
-
         boolean successful = CaptchaCodeManager.addToCache(phoneNumber, code);
         if (!successful) {
             return ResponseUtil.fail(AUTH_CAPTCHA_FREQUENCY, "验证码未超时1分钟，不能发送");
         }
+        notifyService.notifySmsTemplate(phoneNumber, NotifyType.CAPTCHA, new String[]{code});
 
         return ResponseUtil.ok();
     }
@@ -371,10 +379,7 @@ public class WxAuthController {
      * 失败则 { errno: XXX, errmsg: XXX }
      */
     @PostMapping("reset")
-    public Object reset(@LoginUser Integer userId, @RequestBody String body, HttpServletRequest request) {
-        if(userId == null){
-            return ResponseUtil.unlogin();
-        }
+    public Object reset(@RequestBody String body, HttpServletRequest request) {
         String password = JacksonUtil.parseString(body, "password");
         String mobile = JacksonUtil.parseString(body, "mobile");
         String code = JacksonUtil.parseString(body, "code");

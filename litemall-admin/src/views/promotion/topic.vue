@@ -3,18 +3,27 @@
 
     <!-- 查询和其他操作 -->
     <div class="filter-container">
-      <el-input v-model="listQuery.title" clearable class="filter-item" style="width: 200px;" placeholder="请输入专题标题"/>
-      <el-input v-model="listQuery.subtitle" clearable class="filter-item" style="width: 200px;" placeholder="请输入专题子标题"/>
+      <el-input v-model="listQuery.title" clearable class="filter-item" style="width: 200px;" placeholder="请输入专题标题" />
+      <el-input v-model="listQuery.subtitle" clearable class="filter-item" style="width: 200px;" placeholder="请输入专题子标题" />
+      <el-select v-model="listQuery.sort" class="filter-item" placeholder="请选择排序字段">
+        <el-option v-for="item in options" :key="item.value" :label="item.label" :value="item.value" />
+      </el-select>
       <el-button v-permission="['GET /admin/topic/list']" class="filter-item" type="primary" icon="el-icon-search" @click="handleFilter">查找</el-button>
-      <el-button v-permission="['POST /admin/topic/create']" class="filter-item" type="primary" icon="el-icon-edit" @click="handleCreate">添加</el-button>
       <el-button :loading="downloadLoading" class="filter-item" type="primary" icon="el-icon-download" @click="handleDownload">导出</el-button>
     </div>
 
-    <!-- 查询结果 -->
-    <el-table v-loading="listLoading" :data="list" element-loading-text="正在查询中。。。" border fit highlight-current-row>
-      <el-table-column align="center" label="专题标题" prop="title"/>
+    <div class="operator-container">
+      <el-button v-permission="['POST /admin/topic/create']" class="filter-item" type="primary" icon="el-icon-edit" @click="handleCreate">添加</el-button>
+      <el-button v-permission="['GET /admin/topic/batch-delete']" class="filter-item" type="danger" icon="el-icon-delete" @click="handleBatchDelete">批量删除</el-button>
+    </div>
 
-      <el-table-column align="center" label="专题子标题" min-width="200" prop="subtitle"/>
+    <!-- 查询结果 -->
+    <el-table v-loading="listLoading" :data="list" element-loading-text="正在查询中。。。" border fit highlight-current-row @selection-change="handleSelectionChange">
+      <el-table-column type="selection" width="55" />
+
+      <el-table-column align="center" label="专题标题" prop="title" />
+
+      <el-table-column align="center" label="专题子标题" min-width="200" prop="subtitle" />
 
       <el-table-column align="center" property="picUrl" label="图片">
         <template slot-scope="scope">
@@ -25,17 +34,17 @@
       <el-table-column align="center" label="专题详情" prop="content">
         <template slot-scope="scope">
           <el-dialog :visible.sync="contentDialogVisible" title="专题详情">
-            <div v-html="contentDetail"/>
+            <div v-html="contentDetail" />
           </el-dialog>
           <el-button type="primary" size="mini" @click="showContent(scope.row.content)">查看</el-button>
         </template>
       </el-table-column>
 
-      <el-table-column align="center" label="底价" prop="price"/>
+      <el-table-column align="center" label="底价" prop="price" />
 
-      <el-table-column align="center" label="阅读数量" prop="readCount"/>
+      <el-table-column align="center" label="阅读数量" prop="readCount" />
 
-      <el-table-column align="center" label="操作" min-width="200" class-name="small-padding fixed-width">
+      <el-table-column align="center" label="操作" min-width="100" class-name="small-padding fixed-width">
         <template slot-scope="scope">
           <el-button v-permission="['POST /admin/topic/update']" type="primary" size="mini" @click="handleUpdate(scope.row)">编辑</el-button>
           <el-button v-permission="['POST /admin/topic/delete']" type="danger" size="mini" @click="handleDelete(scope.row)">删除</el-button>
@@ -48,44 +57,6 @@
     <el-tooltip placement="top" content="返回顶部">
       <back-to-top :visibility-height="100" />
     </el-tooltip>
-
-    <!-- 添加或修改对话框 -->
-    <el-dialog :title="textMap[dialogStatus]" :visible.sync="dialogFormVisible">
-      <el-form ref="dataForm" :rules="rules" :model="dataForm" status-icon label-position="left" label-width="100px" style="width: 400px; margin-left:50px;">
-        <el-form-item label="专题标题" prop="title">
-          <el-input v-model="dataForm.title"/>
-        </el-form-item>
-        <el-form-item label="专题子标题" prop="subtitle">
-          <el-input v-model="dataForm.subtitle"/>
-        </el-form-item>
-        <el-form-item label="专题图片" prop="picUrl">
-          <el-upload
-            :headers="headers"
-            :action="uploadPath"
-            :show-file-list="false"
-            :on-success="uploadPicUrl"
-            class="avatar-uploader"
-            accept=".jpg,.jpeg,.png,.gif">
-            <img v-if="dataForm.picUrl" :src="dataForm.picUrl" class="avatar">
-            <i v-else class="el-icon-plus avatar-uploader-icon"/>
-          </el-upload>
-        </el-form-item>
-        <el-form-item style="width: 700px;" label="专题内容">
-          <editor :init="editorInit" v-model="dataForm.content"/>
-        </el-form-item>
-        <el-form-item label="商品低价" prop="price">
-          <el-input v-model="dataForm.price"/>
-        </el-form-item>
-        <el-form-item label="阅读量" prop="readCount">
-          <el-input v-model="dataForm.readCount"/>
-        </el-form-item>
-      </el-form>
-      <div slot="footer" class="dialog-footer">
-        <el-button @click="dialogFormVisible = false">取消</el-button>
-        <el-button v-if="dialogStatus=='create'" type="primary" @click="createData">确定</el-button>
-        <el-button v-else type="primary" @click="updateData">确定</el-button>
-      </div>
-    </el-dialog>
 
   </div>
 </template>
@@ -120,19 +91,16 @@
 </style>
 
 <script>
-import { listTopic, createTopic, updateTopic, deleteTopic } from '@/api/topic'
-import { createStorage, uploadPath } from '@/api/storage'
+import { listTopic, deleteTopic, batchDeleteTopic } from '@/api/topic'
 import BackToTop from '@/components/BackToTop'
-import Editor from '@tinymce/tinymce-vue'
 import Pagination from '@/components/Pagination' // Secondary package based on el-pagination
-import { getToken } from '@/utils/auth'
+import _ from 'lodash'
 
 export default {
   name: 'Topic',
-  components: { BackToTop, Editor, Pagination },
+  components: { BackToTop, Pagination },
   data() {
     return {
-      uploadPath,
       list: [],
       total: 0,
       listLoading: true,
@@ -144,65 +112,20 @@ export default {
         sort: 'add_time',
         order: 'desc'
       },
-      dataForm: {
-        id: undefined,
-        titile: undefined,
-        subtitle: undefined,
-        picUrl: undefined,
-        content: '',
-        price: undefined,
-        readCount: undefined,
-        goods: []
-      },
+      options: [{
+        value: 'id',
+        label: '按序号排序'
+      }, {
+        value: 'add_time',
+        label: '按时间排序'
+      }, {
+        value: 'price',
+        label: '按价格排序'
+      }],
+      multipleSelection: [],
       contentDetail: '',
       contentDialogVisible: false,
-      dialogFormVisible: false,
-      dialogStatus: '',
-      textMap: {
-        update: '编辑',
-        create: '创建'
-      },
-      rules: {
-        title: [
-          { required: true, message: '专题标题不能为空', trigger: 'blur' }
-        ],
-        subtitle: [
-          { required: true, message: '专题子标题不能为空', trigger: 'blur' }
-        ],
-        content: [
-          { required: true, message: '专题内容不能为空', trigger: 'blur' }
-        ]
-      },
-      downloadLoading: false,
-      editorInit: {
-        language: 'zh_CN',
-        convert_urls: false,
-        plugins: [
-          'advlist anchor autolink autosave code codesample colorpicker colorpicker contextmenu directionality emoticons fullscreen hr image imagetools importcss insertdatetime link lists media nonbreaking noneditable pagebreak paste preview print save searchreplace spellchecker tabfocus table template textcolor textpattern visualblocks visualchars wordcount'
-        ],
-        toolbar: [
-          'searchreplace bold italic underline strikethrough alignleft aligncenter alignright outdent indent  blockquote undo redo removeformat subscript superscript code codesample',
-          'hr bullist numlist link image charmap preview anchor pagebreak insertdatetime media table emoticons forecolor backcolor fullscreen'
-        ],
-        images_upload_handler: function(blobInfo, success, failure) {
-          const formData = new FormData()
-          formData.append('file', blobInfo.blob())
-          createStorage(formData)
-            .then(res => {
-              success(res.data.data.url)
-            })
-            .catch(() => {
-              failure('上传失败，请重新上传')
-            })
-        }
-      }
-    }
-  },
-  computed: {
-    headers() {
-      return {
-        'X-Litemall-Admin-Token': getToken()
-      }
+      downloadLoading: false
     }
   },
   created() {
@@ -227,88 +150,11 @@ export default {
       this.listQuery.page = 1
       this.getList()
     },
-    resetForm() {
-      this.dataForm = {
-        id: undefined,
-        titile: undefined,
-        subtitle: undefined,
-        picUrl: undefined,
-        content: '',
-        price: undefined,
-        readCount: undefined,
-        goods: []
-      }
-    },
     handleCreate() {
-      this.resetForm()
-      this.dialogStatus = 'create'
-      this.dialogFormVisible = true
-      this.$nextTick(() => {
-        this.$refs['dataForm'].clearValidate()
-      })
-    },
-    uploadPicUrl: function(response) {
-      this.dataForm.picUrl = response.data.url
-    },
-    createData() {
-      this.$refs['dataForm'].validate(valid => {
-        if (valid) {
-          createTopic(this.dataForm)
-            .then(response => {
-              this.list.unshift(response.data.data)
-              this.dialogFormVisible = false
-              this.$notify.success({
-                title: '成功',
-                message: '创建专题成功'
-              })
-            })
-            .catch(response => {
-              this.$notify.error({
-                title: '失败',
-                message: response.data.errmsg
-              })
-            })
-        }
-      })
-    },
-    showContent(content) {
-      this.contentDetail = content
-      this.contentDialogVisible = true
+      this.$router.push({ path: '/promotion/topic-create' })
     },
     handleUpdate(row) {
-      this.dataForm = Object.assign({}, row)
-      this.dialogStatus = 'update'
-      this.dialogFormVisible = true
-      this.$nextTick(() => {
-        this.$refs['dataForm'].clearValidate()
-      })
-    },
-    updateData() {
-      this.$refs['dataForm'].validate(valid => {
-        if (valid) {
-          updateTopic(this.dataForm)
-            .then(() => {
-              for (const v of this.list) {
-                if (v.id === this.dataForm.id) {
-                  const index = this.list.indexOf(v)
-                  this.list.splice(index, 1, this.dataForm)
-                  break
-                }
-              }
-              this.dialogFormVisible = false
-              this.$notify.success({
-                title: '成功',
-                message: '更新专题成功'
-              })
-            })
-            .catch(response => {
-              this.$notify.error({
-                title: '失败',
-                message: response.data.errmsg
-              })
-            })
-        }
-      })
+      this.$router.push({ path: '/promotion/topic-edit', query: { id: row.id }})
     },
     handleDelete(row) {
       deleteTopic(row)
@@ -317,8 +163,38 @@ export default {
             title: '成功',
             message: '删除专题成功'
           })
-          const index = this.list.indexOf(row)
-          this.list.splice(index, 1)
+          this.getList()
+        })
+        .catch(response => {
+          this.$notify.error({
+            title: '失败',
+            message: response.data.errmsg
+          })
+        })
+    },
+    handleSelectionChange(val) {
+      this.multipleSelection = val
+    },
+    showContent(content) {
+      this.contentDetail = content
+      this.contentDialogVisible = true
+    },
+    handleBatchDelete() {
+      if (this.multipleSelection.length === 0) {
+        this.$message.error('请选择至少一条记录')
+        return
+      }
+      const ids = []
+      _.forEach(this.multipleSelection, function(item) {
+        ids.push(item.id)
+      })
+      batchDeleteTopic({ ids: ids })
+        .then(response => {
+          this.$notify.success({
+            title: '成功',
+            message: '批量删除专题成功'
+          })
+          this.getList()
         })
         .catch(response => {
           this.$notify.error({

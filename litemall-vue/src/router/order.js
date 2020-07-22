@@ -5,7 +5,9 @@ export default [
     path: '/order',
     name: 'cart',
     meta: {
-      login: true
+      login: true,
+      showHeader:false,
+      title:"购物车"
     },
     components: { 
       default: () => import('@/views/order/tabbar-cart'), 
@@ -13,14 +15,14 @@ export default [
     }
   },
   {
-    path: '/order/placeOrderEntity',
-    name: 'placeOrderEntity',
-    component: () => import('@/views/order/place-order-entity')
+    path: '/order/checkout',
+    name: 'orderCheckout',
+    component: () => import('@/views/order/checkout')
   },
   {
-    path: '/order/orderDetail',
+    path: '/order/order-detail',
     name: 'orderDetail',
-    component: () => import('@/views/order/orderDetail')
+    component: () => import('@/views/order/order-detail')
   },
   {
     path: '/order/payment',

@@ -11,7 +11,7 @@ import java.util.List;
  * 101 订单生成，未支付；102，下单未支付用户取消；103，下单未支付超期系统自动取消
  * 201 支付完成，商家未发货；202，订单生产，已付款未发货，用户申请退款；203，管理员执行退款操作，确认退款成功；
  * 301 商家发货，用户未确认；
- * 401 用户确认收货，订单结束； 402 用户没有确认收货，但是快递反馈已收获后，超过一定时间，系统自动确认收货，订单结束。
+ * 401 用户确认收货，订单结束； 402 用户没有确认收货，但是快递反馈已收货后，超过一定时间，系统自动确认收货，订单结束。
  *
  * 当101用户未付款时，此时用户可以进行的操作是取消或者付款
  * 当201支付完成而商家未发货时，此时用户可以退款
@@ -27,10 +27,10 @@ public class OrderUtil {
     public static final Short STATUS_CONFIRM = 401;
     public static final Short STATUS_CANCEL = 102;
     public static final Short STATUS_AUTO_CANCEL = 103;
+    public static final Short STATUS_ADMIN_CANCEL = 104;
     public static final Short STATUS_REFUND = 202;
     public static final Short STATUS_REFUND_CONFIRM = 203;
     public static final Short STATUS_AUTO_CONFIRM = 402;
-
 
     public static String orderStatusText(LitemallOrder order) {
         int status = order.getOrderStatus().intValue();
@@ -57,6 +57,10 @@ public class OrderUtil {
 
         if (status == 203) {
             return "已退款";
+        }
+
+        if (status == 204) {
+            return "已超时团购";
         }
 
         if (status == 301) {
@@ -89,7 +93,7 @@ public class OrderUtil {
         } else if (status == 201) {
             // 如果订单已付款，没有发货，则可退款
             handleOption.setRefund(true);
-        } else if (status == 202) {
+        } else if (status == 202 || status == 204) {
             // 如果订单申请退款中，没有相关操作
         } else if (status == 203) {
             // 如果订单已经退款，则可删除
@@ -99,10 +103,11 @@ public class OrderUtil {
             // 此时不能取消订单
             handleOption.setConfirm(true);
         } else if (status == 401 || status == 402) {
-            // 如果订单已经支付，且已经收货，则可删除、去评论和再次购买
+            // 如果订单已经支付，且已经收货，则可删除、去评论、申请售后和再次购买
             handleOption.setDelete(true);
             handleOption.setComment(true);
             handleOption.setRebuy(true);
+            handleOption.setAftersale(true);
         } else {
             throw new IllegalStateException("status不支持");
         }
@@ -142,6 +147,12 @@ public class OrderUtil {
 
     public static boolean isCreateStatus(LitemallOrder litemallOrder) {
         return OrderUtil.STATUS_CREATE == litemallOrder.getOrderStatus().shortValue();
+    }
+
+    public static boolean hasPayed(LitemallOrder order) {
+        return OrderUtil.STATUS_CREATE != order.getOrderStatus().shortValue()
+                && OrderUtil.STATUS_CANCEL != order.getOrderStatus().shortValue()
+                && OrderUtil.STATUS_AUTO_CANCEL != order.getOrderStatus().shortValue();
     }
 
     public static boolean isPayStatus(LitemallOrder litemallOrder) {

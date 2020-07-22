@@ -24,14 +24,14 @@ import Layout from '@/views/layout/Layout'
     noCache: true                if true ,the page will no be cached(default is false)
   }
 **/
-export const constantRouterMap = [
+export const constantRoutes = [
   {
     path: '/redirect',
     component: Layout,
     hidden: true,
     children: [
       {
-        path: '/redirect/:path*',
+        path: '/redirect/:path(.*)',
         component: () => import('@/views/redirect/index')
       }
     ]
@@ -65,19 +65,13 @@ export const constantRouterMap = [
         path: 'dashboard',
         component: () => import('@/views/dashboard/index'),
         name: 'Dashboard',
-        meta: { title: '首页', icon: 'dashboard', noCache: true }
+        meta: { title: '首页', icon: 'dashboard', affix: true }
       }
     ]
   }
 ]
 
-export default new Router({
-  // mode: 'history', // require service support
-  scrollBehavior: () => ({ y: 0 }),
-  routes: constantRouterMap
-})
-
-export const asyncRouterMap = [
+export const asyncRoutes = [
   {
     path: '/user',
     component: Layout,
@@ -197,8 +191,18 @@ export const asyncRouterMap = [
         component: () => import('@/views/mall/order'),
         name: 'order',
         meta: {
-          perms: ['GET /admin/order/list', 'GET /admin/order/detail', 'POST /admin/order/ordership', 'POST /admin/order/orderrefund', 'POST /admin/order/orderreply'],
+          perms: ['GET /admin/order/list', 'GET /admin/order/detail', 'POST /admin/order/ship', 'POST /admin/order/refund', 'POST /admin/order/delete', 'POST /admin/order/reply'],
           title: '订单管理',
+          noCache: true
+        }
+      },
+      {
+        path: 'aftersale',
+        component: () => import('@/views/mall/aftersale'),
+        name: 'aftersale',
+        meta: {
+          perms: ['GET /admin/aftersale/list', 'GET /admin/aftersale/detail', 'POST /admin/order/receive', 'POST /admin/aftersale/complete', 'POST /admin/aftersale/reject'],
+          title: '售后管理',
           noCache: true
         }
       },
@@ -332,6 +336,28 @@ export const asyncRouterMap = [
         }
       },
       {
+        path: 'topic-create',
+        component: () => import('@/views/promotion/topicCreate'),
+        name: 'topicCreate',
+        meta: {
+          perms: ['POST /admin/topic/create'],
+          title: '专题创建',
+          noCache: true
+        },
+        hidden: true
+      },
+      {
+        path: 'topic-edit',
+        component: () => import('@/views/promotion/topicEdit'),
+        name: 'topicEdit',
+        meta: {
+          perms: ['GET /admin/topic/read', 'POST /admin/topic/update'],
+          title: '专题编辑',
+          noCache: true
+        },
+        hidden: true
+      },
+      {
         path: 'groupon-rule',
         component: () => import('@/views/promotion/grouponRule'),
         name: 'grouponRule',
@@ -372,6 +398,16 @@ export const asyncRouterMap = [
         meta: {
           perms: ['GET /admin/admin/list', 'POST /admin/admin/create', 'POST /admin/admin/update', 'POST /admin/admin/delete'],
           title: '管理员',
+          noCache: true
+        }
+      },
+      {
+        path: 'notice',
+        component: () => import('@/views/sys/notice'),
+        name: 'sysNotice',
+        meta: {
+          perms: ['GET /admin/notice/list', 'POST /admin/notice/create', 'POST /admin/notice/update', 'POST /admin/notice/delete'],
+          title: '通知管理',
           noCache: true
         }
       },
@@ -557,6 +593,12 @@ export const asyncRouterMap = [
         component: () => import('@/views/profile/password'),
         name: 'password',
         meta: { title: '修改密码', noCache: true }
+      },
+      {
+        path: 'notice',
+        component: () => import('@/views/profile/notice'),
+        name: 'notice',
+        meta: { title: '通知中心', noCache: true }
       }
     ],
     hidden: true
@@ -564,3 +606,19 @@ export const asyncRouterMap = [
 
   { path: '*', redirect: '/404', hidden: true }
 ]
+
+const createRouter = () => new Router({
+  // mode: 'history', // require service support
+  scrollBehavior: () => ({ y: 0 }),
+  routes: constantRoutes
+})
+
+const router = createRouter()
+
+// Detail see: https://github.com/vuejs/vue-router/issues/1234#issuecomment-357941465
+export function resetRouter() {
+  const newRouter = createRouter()
+  router.matcher = newRouter.matcher // reset router
+}
+
+export default router

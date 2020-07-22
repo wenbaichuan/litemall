@@ -16,11 +16,11 @@ export function createTopic(data) {
   })
 }
 
-export function readTopic(data) {
+export function readTopic(query) {
   return request({
     url: '/topic/read',
     method: 'get',
-    data
+    params: query
   })
 }
 
@@ -35,6 +35,14 @@ export function updateTopic(data) {
 export function deleteTopic(data) {
   return request({
     url: '/topic/delete',
+    method: 'post',
+    data
+  })
+}
+
+export function batchDeleteTopic(data) {
+  return request({
+    url: '/topic/batch-delete',
     method: 'post',
     data
   })
